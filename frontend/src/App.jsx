@@ -102,31 +102,36 @@ function App() {
 
   return (
     <Layout isReady={isReady} status={getStatusText()}>
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Stats / Welcome Area */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Enhanced Header Area */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h2 className="text-3xl font-bold text-white mb-2">Gerenciador de Envios</h2>
-            <p className="text-gray-400">Gerencie e dispare mensagens em massa.</p>
+            <h2 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 mb-3">
+              Gerenciador de Envios
+            </h2>
+            <p className="text-gray-400 text-lg">Gerencie e dispare mensagens em massa de forma profissional.</p>
           </div>
           {isReady && (
             <div className="flex gap-4">
-              <div className="bg-[#111b21] px-5 py-3 rounded-xl border border-gray-800">
-                <span className="block text-xs text-gray-500 uppercase tracking-wider font-semibold">Status</span>
-                <span className="text-green-400 font-medium flex items-center gap-2">
-                  Ativo <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+              <div className="relative overflow-hidden bg-gradient-to-br from-green-900/40 to-green-800/40 px-6 py-4 rounded-2xl border border-green-700/50 backdrop-blur-sm">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-green-400 animate-gradient bg-[length:200%_100%]" />
+                <span className="block text-xs text-gray-400 uppercase tracking-wider font-semibold mb-1">Status</span>
+                <span className="text-green-400 font-bold text-lg flex items-center gap-2">
+                  Sistema Ativo
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
                 </span>
               </div>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-220px)] min-h-[600px]">
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[700px]">
           {/* Main Interaction Area */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
+          <div className="lg:col-span-8 flex flex-col">
             {!isReady ? (
-              <div className="h-full bg-[#111b21] rounded-2xl border border-gray-800 flex items-center justify-center p-8 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-br from-whatsapp-green/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+              <div className="h-full bg-gradient-to-br from-[#1a252e]/60 to-[#111b21]/60 rounded-3xl border border-gray-700/50 flex items-center justify-center p-10 relative overflow-hidden backdrop-blur-sm shadow-2xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-whatsapp-green/5 via-transparent to-whatsapp-teal/5 opacity-50" />
                 <QRCodeDisplay
                   qrCode={qrCode}
                   isReady={isReady}
@@ -136,22 +141,19 @@ function App() {
                 />
               </div>
             ) : (
-              <div className="h-full bg-[#111b21] rounded-2xl border border-gray-800 p-1 relative overflow-hidden">
+              <div className="h-full rounded-3xl border border-gray-700/50 relative overflow-hidden shadow-2xl">
                 <Sender isReady={isReady} onStartCampaign={handleStartCampaign} />
               </div>
             )}
           </div>
 
           {/* Logs Area */}
-          <div className="lg:col-span-4 h-full bg-[#111b21] rounded-2xl border border-gray-800 overflow-hidden flex flex-col">
+          <div className="lg:col-span-4 h-full rounded-3xl border border-gray-700/50 overflow-hidden flex flex-col shadow-2xl">
             <LogViewer logs={logs} isSending={isSending} />
           </div>
         </div>
       </div>
-      <div className="text-center mt-12 pb-6 opacity-30 hover:opacity-100 transition-opacity duration-500">
-        <p className="text-xs text-gray-500 uppercase tracking-widest font-mono">Produzido por Brayan J Rodrigues</p>
-      </div>
-    </Layout >
+    </Layout>
   );
 }
 

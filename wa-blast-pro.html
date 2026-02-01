@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BJ Sender - Disparador de Mensagens</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0f14;
+            --bg-secondary: #111921;
+            --bg-card: #161f2a;
+            --bg-input: #0d1318;
+            --accent-green: #25D366;
+            --accent-teal: #128C7E;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-orange: #f59e0b;
+            --accent-red: #ef4444;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: #1e293b;
+            --border-light: #334155;
+            --shadow-glow: 0 0 30px rgba(37, 211, 102, 0.2);
+            --radius-md: 12px;
+            --radius-lg: 16px;
+        }
+
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        ::selection {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-light);
+            border-radius: 4px;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-teal));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .logo-icon svg {
+            width: 28px;
+            height: 28px;
+            color: white;
+        }
+
+        .logo-text h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .logo-text span {
+            font-size: 0.75rem;
+            color: var(--accent-green);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: 0.3s;
+            margin-bottom: 4px;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-teal));
+            color: white;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .nav-item svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            background: rgba(37, 211, 102, 0.2);
+            color: var(--accent-green);
+            font-size: 0.6875rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 20px;
+        }
+
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .status-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.offline {
+            background: var(--accent-orange);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7);
+            }
+
+            50% {
+                opacity: 0.8;
+                box-shadow: 0 0 0 8px rgba(37, 211, 102, 0);
+            }
+        }
+
+        .status-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .status-value {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+
+        .status-value.offline {
+            color: var(--accent-orange);
+        }
+
+        .credits {
+            text-align: center;
+            padding: 12px;
+            margin-top: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+
+        .credits p {
+            font-size: 0.6875rem;
+            color: var(--text-muted);
+        }
+
+        .credits span {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        /* Main */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 20px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .header-title h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-title p {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(37, 211, 102, 0.1);
+            border: 1px solid rgba(37, 211, 102, 0.3);
+            padding: 10px 16px;
+            border-radius: var(--radius-lg);
+        }
+
+        .status-badge .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        .status-badge span {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 32px;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 24px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            transition: 0.3s;
+        }
+
+        .card:hover {
+            border-color: var(--border-light);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-icon.green {
+            background: rgba(37, 211, 102, 0.15);
+            color: var(--accent-green);
+        }
+
+        .card-icon.blue {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent-blue);
+        }
+
+        .card-icon.purple {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--accent-purple);
+        }
+
+        .card-icon.orange {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-orange);
+        }
+
+        .card-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .card-title {
+            flex: 1;
+        }
+
+        .card-title h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .card-title p {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .card-badge {
+            background: rgba(37, 211, 102, 0.15);
+            color: var(--accent-green);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        /* Forms */
+        textarea,
+        input[type="number"] {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            font-family: inherit;
+            font-size: 0.9375rem;
+            color: var(--text-primary);
+            resize: none;
+            transition: 0.3s;
+        }
+
+        textarea:focus,
+        input:focus {
+            outline: none;
+            border-color: var(--accent-green);
+            box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+        }
+
+        textarea::placeholder,
+        input::placeholder {
+            color: var(--text-muted);
+        }
+
+        textarea {
+            min-height: 140px;
+            font-family: 'Monaco', monospace;
+            font-size: 0.875rem;
+        }
+
+        .delay-inputs {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .delay-group {
+            flex: 1;
+        }
+
+        .delay-group label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .delay-group input {
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+
+        .delay-separator {
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            margin-top: 20px;
+        }
+
+        .file-upload {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .upload-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px 20px;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .upload-btn:hover {
+            border-color: var(--accent-purple);
+            color: var(--accent-purple);
+        }
+
+        .upload-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .file-preview {
+            display: none;
+            position: relative;
+        }
+
+        .file-preview.active {
+            display: block;
+        }
+
+        .file-preview img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: var(--radius-md);
+            border: 2px solid var(--border-light);
+        }
+
+        .file-preview .remove-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            background: var(--accent-red);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .file-preview .remove-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .form-section {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Submit */
+        .submit-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-teal));
+            border: none;
+            border-radius: var(--radius-lg);
+            padding: 18px 32px;
+            color: white;
+            font-family: inherit;
+            font-size: 1.0625rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: 0.5s;
+        }
+
+        .submit-btn:hover::before {
+            left: 100%;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .submit-btn:disabled {
+            background: var(--border-light);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .submit-btn svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        /* Logs */
+        .logs-section {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logs-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 200px);
+        }
+
+        .logs-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .logs-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sending-badge {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: rgba(18, 140, 126, 0.15);
+            color: var(--accent-teal);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        .sending-badge.active {
+            display: flex;
+        }
+
+        .sending-badge .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-teal);
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+
+        .logs-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .logs-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 40px;
+        }
+
+        .logs-empty svg {
+            width: 48px;
+            height: 48px;
+            opacity: 0.5;
+            margin-bottom: 16px;
+        }
+
+        .log-entry {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            border-radius: var(--radius-md);
+            margin-bottom: 8px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .log-entry.success {
+            background: rgba(37, 211, 102, 0.1);
+            border: 1px solid rgba(37, 211, 102, 0.2);
+        }
+
+        .log-entry.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .log-entry.info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .log-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .log-entry.success .log-icon {
+            background: rgba(37, 211, 102, 0.2);
+            color: var(--accent-green);
+        }
+
+        .log-entry.error .log-icon {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-red);
+        }
+
+        .log-entry.info .log-icon {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--accent-blue);
+        }
+
+        .log-icon svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .log-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .log-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .log-number {
+            font-size: 0.875rem;
+            font-weight: 600;
+            font-family: 'Monaco', monospace;
+        }
+
+        .log-counter {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: var(--bg-input);
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .log-message {
+            font-size: 0.8125rem;
+            color: var(--accent-red);
+            margin-top: 4px;
+            word-break: break-word;
+        }
+
+        /* QR Section */
+        .qr-section {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .qr-section.active {
+            display: flex;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 16px;
+            border-radius: var(--radius-lg);
+            margin: 24px 0;
+            box-shadow: 0 0 40px rgba(37, 211, 102, 0.2);
+        }
+
+        .qr-container img {
+            width: 280px;
+            height: 280px;
+        }
+
+        .qr-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .qr-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .qr-instructions {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--radius-md);
+            text-align: left;
+            margin-top: 16px;
+        }
+
+        .qr-instructions ol {
+            margin-left: 20px;
+            color: var(--text-secondary);
+        }
+
+        .qr-instructions li {
+            margin-bottom: 8px;
+        }
+
+        .qr-instructions strong {
+            color: var(--text-primary);
+        }
+
+        .progress-bar {
+            width: 200px;
+            height: 8px;
+            background: var(--bg-input);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 16px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-green), var(--accent-teal));
+            transition: width 0.3s;
+        }
+
+        .loading-text {
+            font-size: 0.875rem;
+            color: var(--accent-green);
+            margin-top: 8px;
+        }
+
+        .sender-section {
+            display: none;
+        }
+
+        .sender-section.active {
+            display: block;
+        }
+
+        @media (max-width: 1200px) {
+            .content-area {
+                grid-template-columns: 1fr;
+            }
+
+            .logs-card {
+                max-height: 400px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .header {
+                padding: 16px 20px;
+            }
+
+            .content-area {
+                padding: 20px;
+            }
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg></div>
+                    <div class="logo-text">
+                        <h1>BJ Sender</h1><span>Disparador de Mensagens</span>
+                    </div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-item active"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                    </svg>Dashboard<span class="nav-badge">ATIVO</span></div>
+                <div class="nav-item"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>Campanhas</div>
+                <div class="nav-item"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>Segurança</div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="status-card">
+                    <div class="status-header">
+                        <div class="status-dot" id="statusDot"></div><span class="status-label">Status</span>
+                    </div>
+                    <div class="status-value" id="statusText">Conectando...</div>
+                </div>
+                <div class="credits">
+                    <p>Desenvolvido por</p><span>Brayan J Rodrigues</span>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="header-title">
+                    <h2>Gerenciador de Envios</h2>
+                    <p>Gerencie e dispare mensagens em massa</p>
+                </div>
+                <div class="status-badge" id="headerStatus">
+                    <div class="dot"></div><span id="headerStatusText">Conectando...</span>
+                </div>
+            </header>
+            <div class="content-area">
+                <!-- QR Section -->
+                <div class="qr-section" id="qrSection">
+                    <h2 class="qr-title">Conectar WhatsApp</h2>
+                    <p class="qr-subtitle">Escaneie o QR code para iniciar</p>
+                    <div class="qr-container" id="qrContainer" style="display:none;"><img id="qrImage" src=""
+                            alt="QR Code"></div>
+                    <div id="loadingState"><svg
+                            style="width:48px;height:48px;animation:spin 1s linear infinite;color:var(--accent-green)"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg></div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+                    </div>
+                    <p class="loading-text" id="loadingText">Inicializando...</p>
+                    <div class="qr-instructions" id="qrInstructions" style="display:none;">
+                        <ol>
+                            <li>Abra o <strong>WhatsApp</strong> no celular</li>
+                            <li>Vá em <strong>Aparelhos Conectados</strong></li>
+                            <li>Toque em <strong>Conectar Aparelho</strong> e escaneie</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Sender Section -->
+                <div class="form-section sender-section" id="senderSection">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon green"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg></div>
+                            <div class="card-title">
+                                <h3>Lista de Números</h3>
+                                <p>Um número por linha</p>
+                            </div>
+                            <div class="card-badge" id="contactCount">0 contatos</div>
+                        </div>
+                        <textarea id="numbers" placeholder="+5511999999999&#10;+5521888888888"></textarea>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon blue"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg></div>
+                            <div class="card-title">
+                                <h3>Mensagem</h3>
+                                <p>Conteúdo que será enviado</p>
+                            </div>
+                        </div>
+                        <textarea id="message" placeholder="Digite sua mensagem..."
+                            style="font-family:inherit;"></textarea>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon purple"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg></div>
+                            <div class="card-title">
+                                <h3>Anexo de Mídia</h3>
+                                <p>Imagem opcional</p>
+                            </div>
+                        </div>
+                        <div class="file-upload">
+                            <input type="file" id="mediaInput" accept="image/*" style="display:none;">
+                            <label for="mediaInput" class="upload-btn"><svg xmlns="http://www.w3.org/2000/svg"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>Escolher Imagem</label>
+                            <div class="file-preview" id="filePreview"><img id="previewImage" src=""
+                                    alt="Preview"><button class="remove-btn" onclick="removeMedia()"><svg
+                                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg></button></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon orange"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg></div>
+                            <div class="card-title">
+                                <h3>Intervalo de Envio</h3>
+                                <p>Delay em segundos</p>
+                            </div>
+                        </div>
+                        <div class="delay-inputs">
+                            <div class="delay-group"><label>Mínimo</label><input type="number" id="minDelay" value="5"
+                                    min="1"></div>
+                            <span class="delay-separator">→</span>
+                            <div class="delay-group"><label>Máximo</label><input type="number" id="maxDelay" value="15"
+                                    min="1"></div>
+                        </div>
+                    </div>
+                    <button class="submit-btn" id="submitBtn" onclick="startCampaign()"><svg
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>Iniciar Disparos</button>
+                </div>
+
+                <!-- Logs -->
+                <div class="logs-section">
+                    <div class="card logs-card">
+                        <div class="logs-header">
+                            <div class="logs-header-left">
+                                <div class="card-icon blue"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg></div>
+                                <div class="card-title">
+                                    <h3>Registro de Atividade</h3>
+                                    <p>Acompanhe os envios</p>
+                                </div>
+                            </div>
+                            <div class="sending-badge" id="sendingBadge">
+                                <div class="dot"></div>Enviando
+                            </div>
+                        </div>
+                        <div class="logs-container" id="logsContainer">
+                            <div class="logs-empty" id="logsEmpty"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p>Aguardando envios...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ===== CONFIG =====
+        const BACKEND_URL = 'http://localhost:3001';
+        const socket = io(BACKEND_URL);
+
+        // ===== STATE =====
+        let mediaData = null;
+        let isReady = false;
+        let isSending = false;
+
+        // ===== DOM =====
+        const numbersInput = document.getElementById('numbers');
+        const messageInput = document.getElementById('message');
+        const minDelayInput = document.getElementById('minDelay');
+        const maxDelayInput = document.getElementById('maxDelay');
+        const mediaInput = document.getElementById('mediaInput');
+        const filePreview = document.getElementById('filePreview');
+        const previewImage = document.getElementById('previewImage');
+        const contactCount = document.getElementById('contactCount');
+        const submitBtn = document.getElementById('submitBtn');
+        const logsContainer = document.getElementById('logsContainer');
+        const logsEmpty = document.getElementById('logsEmpty');
+        const sendingBadge = document.getElementById('sendingBadge');
+        const qrSection = document.getElementById('qrSection');
+        const senderSection = document.getElementById('senderSection');
+        const qrImage = document.getElementById('qrImage');
+        const qrContainer = document.getElementById('qrContainer');
+        const qrInstructions = document.getElementById('qrInstructions');
+        const loadingState = document.getElementById('loadingState');
+        const progressFill = document.getElementById('progressFill');
+        const loadingText = document.getElementById('loadingText');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const headerStatusText = document.getElementById('headerStatusText');
+
+        // ===== INIT =====
+        numbersInput.addEventListener('input', updateContactCount);
+        mediaInput.addEventListener('change', handleFileSelect);
+        checkStatus();
+
+        // ===== SOCKET EVENTS =====
+        socket.on('qr', (url) => {
+            isReady = false;
+            updateUI();
+            qrImage.src = url;
+            qrContainer.style.display = 'block';
+            qrInstructions.style.display = 'block';
+            loadingState.style.display = 'none';
+            loadingText.textContent = 'Escaneie o QR Code';
+            progressFill.style.width = '0%';
+        });
+
+        socket.on('ready', () => {
+            isReady = true;
+            updateUI();
+        });
+
+        socket.on('authenticated', () => {
+            qrContainer.style.display = 'none';
+            qrInstructions.style.display = 'none';
+            loadingState.style.display = 'block';
+            loadingText.textContent = 'Autenticado! Sincronizando...';
+        });
+
+        socket.on('loading_screen', ({ percent, message }) => {
+            progressFill.style.width = Math.max(5, percent) + '%';
+            loadingText.textContent = message || 'Carregando...';
+        });
+
+        socket.on('progress', (data) => {
+            isSending = true;
+            sendingBadge.classList.add('active');
+            const type = data.status === 'sent' ? 'success' : 'error';
+            addLog(type, data.number, data.index + 1, data.total, data.error);
+        });
+
+        socket.on('campaign_finished', () => {
+            isSending = false;
+            sendingBadge.classList.remove('active');
+            addLog('info', 'SISTEMA', '-', '-', 'Campanha finalizada!');
+            resetSubmitBtn();
+        });
+
+        socket.on('disconnected', () => {
+            isReady = false;
+            updateUI();
+            loadingText.textContent = 'Desconectado';
+        });
+
+        // ===== FUNCTIONS =====
+        async function checkStatus() {
+            try {
+                const res = await fetch(BACKEND_URL + '/status');
+                const data = await res.json();
+                isReady = data.isReady;
+                if (data.qrCodeUrl) {
+                    qrImage.src = data.qrCodeUrl;
+                    qrContainer.style.display = 'block';
+                    qrInstructions.style.display = 'block';
+                    loadingState.style.display = 'none';
+                } else if (data.isAuthenticated && !data.isReady) {
+                    loadingState.style.display = 'block';
+                }
+                progressFill.style.width = (data.loadingPercent || 0) + '%';
+                loadingText.textContent = data.loadingMessage || 'Conectando...';
+                updateUI();
+            } catch (e) {
+                statusText.textContent = 'Servidor offline';
+                statusText.classList.add('offline');
+                statusDot.classList.add('offline');
+            }
+        }
+
+        function updateUI() {
+            if (isReady) {
+                qrSection.classList.remove('active');
+                senderSection.classList.add('active');
+                statusText.textContent = 'Online e Pronto';
+                statusText.classList.remove('offline');
+                statusDot.classList.remove('offline');
+                headerStatusText.textContent = 'Sistema Ativo';
+            } else {
+                qrSection.classList.add('active');
+                senderSection.classList.remove('active');
+                statusText.textContent = 'Aguardando conexão';
+                statusText.classList.add('offline');
+                statusDot.classList.add('offline');
+                headerStatusText.textContent = 'Conectando...';
+            }
+        }
+
+        function updateContactCount() {
+            const n = numbersInput.value.split('\n').filter(x => x.trim()).length;
+            contactCount.textContent = n + ' contatos';
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    mediaData = { data: reader.result.split(',')[1], mimetype: file.type, filename: file.name };
+                    previewImage.src = reader.result;
+                    filePreview.classList.add('active');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeMedia() {
+            mediaData = null;
+            mediaInput.value = '';
+            filePreview.classList.remove('active');
+        }
+
+        function addLog(type, number, index, total, error) {
+            logsEmpty.style.display = 'none';
+            const icons = {
+                success: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>',
+                error: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>',
+                info: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+            };
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            entry.innerHTML = `<div class="log-icon">${icons[type]}</div><div class="log-content"><div class="log-header"><span class="log-number">${number}</span><span class="log-counter">#${index}/${total}</span></div>${error ? `<div class="log-message">${error}</div>` : ''}</div>`;
+            logsContainer.insertBefore(entry, logsContainer.firstChild);
+        }
+
+        async function startCampaign() {
+            const numbers = numbersInput.value.split('\n').filter(x => x.trim());
+            const message = messageInput.value.trim();
+            const minDelay = parseInt(minDelayInput.value) * 1000 || 5000;
+            const maxDelay = parseInt(maxDelayInput.value) * 1000 || 15000;
+
+            if (!numbers.length) return alert('Adicione números!');
+            if (!message && !mediaData) return alert('Digite uma mensagem ou selecione imagem!');
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<svg style="animation:spin 1s linear infinite" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>Enviando...';
+            logsContainer.innerHTML = '';
+            logsContainer.appendChild(logsEmpty);
+            logsEmpty.style.display = 'none';
+
+            try {
+                await fetch(BACKEND_URL + '/send-bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ numbers, message, media: mediaData, minDelay, maxDelay })
+                });
+            } catch (e) {
+                addLog('error', 'SISTEMA', '-', '-', 'Erro ao iniciar campanha');
+                resetSubmitBtn();
+            }
+        }
+
+        function resetSubmitBtn() {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>Iniciar Disparos';
+        }
+
+        updateContactCount();
+    </script>
+</body>
+
+</html>
