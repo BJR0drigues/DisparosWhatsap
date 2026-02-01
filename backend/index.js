@@ -1,5 +1,5 @@
 const express = require('express');
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -15,7 +15,8 @@ const io = new Server(server, {
 });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const port = 3001;
 
@@ -142,8 +143,10 @@ app.post('/logout', async (req, res) => {
     }
 })
 
+
+
 app.post('/send-bulk', async (req, res) => {
-    const { numbers, message, minDelay = 5000, maxDelay = 15000 } = req.body;
+    const { numbers, message, media, minDelay = 5000, maxDelay = 15000 } = req.body;
 
     if (!isReady) {
         return res.status(400).json({ error: 'Client is not ready' });
@@ -153,8 +156,20 @@ app.post('/send-bulk', async (req, res) => {
         return res.status(400).json({ error: 'No numbers provided' });
     }
 
-    if (!message) {
-        return res.status(400).json({ error: 'No message provided' });
+    // Allow message to be empty if media is present, but usually caption is nice
+    if (!message && !media) {
+        return res.status(400).json({ error: 'No message or media provided' });
+    }
+
+    let mediaObj = null;
+    if (media) {
+        try {
+            // media should contain { data: "base64...", mimetype: "image/png", filename: "name.png" }
+            mediaObj = new MessageMedia(media.mimetype, media.data, media.filename);
+        } catch (e) {
+            console.error('Error creating media object', e);
+            return res.status(400).json({ error: 'Invalid media data' });
+        }
     }
 
     // Process in background
@@ -167,12 +182,12 @@ app.post('/send-bulk', async (req, res) => {
         const formattedNum = formatNumber(rawNumber);
 
         try {
-            // Note: sendMessage can fail if the number doesn't exist on WA.
-            // verifying the number first is safer but slower:
-            // const isRegistered = await client.isRegisteredUser(formattedNum);
-            // if(isRegistered) ...
+            if (mediaObj) {
+                await client.sendMessage(formattedNum, mediaObj, { caption: message });
+            } else {
+                await client.sendMessage(formattedNum, message);
+            }
 
-            await client.sendMessage(formattedNum, message);
             console.log(`Sent to ${formattedNum} (${i + 1}/${numbers.length})`);
             io.emit('progress', {
                 index: i,

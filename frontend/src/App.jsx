@@ -76,13 +76,14 @@ function App() {
     };
   }, []);
 
-  const handleStartCampaign = async (numbers, message, delaySettings) => {
+  const handleStartCampaign = async (numbers, message, delaySettings, media) => {
     setIsSending(true);
     setLogs([]); // Clear previous logs
     try {
       await axios.post('http://localhost:3001/send-bulk', {
         numbers,
         message,
+        media,
         minDelay: delaySettings.min,
         maxDelay: delaySettings.max
       });
