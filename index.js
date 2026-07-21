@@ -18,6 +18,10 @@ const MOSTRAR_JANELA_INTERNA = false;
 // Serve para testar a interface sem celular/conta e sem risco de bloqueio.
 // Ativa com a variável BJ_TESTE=1 ou rodando: node index.js --teste
 const MODO_TESTE = process.env.BJ_TESTE === '1' || process.argv.includes('--teste');
+// Onde fica o histórico de campanhas (modo Registro da interface).
+const ARQ_HISTORICO = path.join(__dirname, 'historico.json');
+// Quantas campanhas guardar no histórico (as mais antigas são descartadas).
+const LIMITE_HISTORICO = 100;
 
 const app = express();
 const servidor = http.createServer(app);
@@ -33,7 +37,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // pela variável BJ_BROWSER_PATH; senão, procura Chrome, Edge (vem em todo
 // Windows) ou Brave nos lugares mais comuns. Se não achar nenhum, retorna
 // undefined e o whatsapp-web.js usa o Chromium interno que ele baixa.
-// Assim usamos o navegador do próprio usuário em vez de baixar o Chromium.
 function acharNavegador() {
     if (process.env.BJ_BROWSER_PATH && fs.existsSync(process.env.BJ_BROWSER_PATH)) {
         return process.env.BJ_BROWSER_PATH;
@@ -67,10 +70,31 @@ let isAuthenticated = false;
 let qrCodeUrl = null;
 let loadingPercent = 0;
 let loadingMessage = 'Inicializando...';
+// Campanha em andamento (null quando não há nenhuma). Vai no /status para a
+// interface conseguir retomar o acompanhamento se a página for recarregada.
+let campanhaAtual = null;
 
 // Só carregados quando NÃO estamos em modo de teste (require preguiçoso).
 let client = null;
 let MessageMedia = null;
+
+// ===== Histórico de campanhas (modo Registro) =====
+
+function carregarHistorico() {
+    try {
+        return JSON.parse(fs.readFileSync(ARQ_HISTORICO, 'utf8'));
+    } catch {
+        return []; // arquivo ainda não existe (ou está corrompido): começa vazio
+    }
+}
+
+function salvarHistorico(historico) {
+    try {
+        fs.writeFileSync(ARQ_HISTORICO, JSON.stringify(historico, null, 2));
+    } catch (err) {
+        console.error('Não foi possível salvar o histórico:', err.message);
+    }
+}
 
 // ===== Liga o WhatsApp de verdade (fora do modo de teste) =====
 function iniciarWhatsApp() {
@@ -186,9 +210,35 @@ function iniciarWhatsApp() {
 
 // ===== Rotas da API =====
 
-// Situação atual da conexão (usada pela interface ao abrir).
+// Situação atual da conexão (usada pela interface ao abrir/recarregar).
 app.get('/status', (req, res) => {
-    res.json({ isReady, isAuthenticated, qrCodeUrl, loadingPercent, loadingMessage });
+    res.json({
+        isReady,
+        isAuthenticated,
+        qrCodeUrl,
+        loadingPercent,
+        loadingMessage,
+        modoTeste: MODO_TESTE,
+        // Resumo da campanha em andamento (sem a lista de resultados, que pesa)
+        campanhaAtual: campanhaAtual && {
+            iniciadaEm: campanhaAtual.iniciadaEm,
+            total: campanhaAtual.total,
+            enviados: campanhaAtual.enviados,
+            falhas: campanhaAtual.falhas,
+            simulada: campanhaAtual.simulada,
+        },
+    });
+});
+
+// Histórico de campanhas (modo Registro da interface).
+app.get('/historico', (req, res) => {
+    res.json(carregarHistorico());
+});
+
+// Apagar todo o histórico.
+app.delete('/historico', (req, res) => {
+    salvarHistorico([]);
+    res.json({ message: 'Histórico apagado' });
 });
 
 // Desconectar a conta do WhatsApp.
@@ -211,6 +261,9 @@ app.post('/send-bulk', async (req, res) => {
     if (!isReady) {
         return res.status(400).json({ error: 'O WhatsApp ainda não está conectado' });
     }
+    if (campanhaAtual) {
+        return res.status(400).json({ error: 'Já existe uma campanha em andamento. Aguarde ela terminar.' });
+    }
     if (!Array.isArray(numbers) || numbers.length === 0) {
         return res.status(400).json({ error: 'Nenhum número foi informado' });
     }
@@ -218,60 +271,120 @@ app.post('/send-bulk', async (req, res) => {
         return res.status(400).json({ error: 'Escreva uma mensagem ou anexe uma imagem' });
     }
 
-    // Responde na hora e segue enviando em segundo plano (o progresso vai por socket).
-    res.json({ message: 'Campanha iniciada', total: numbers.length });
-
-    // No modo de teste, apenas simulamos os envios (sem tocar no WhatsApp).
-    if (MODO_TESTE) {
-        return simularCampanha(numbers, minDelay, maxDelay);
-    }
-
-    // ===== Envio real =====
+    // Monta o objeto de mídia (se houver imagem anexada) - só no envio real.
     let mediaObj = null;
-    if (media) {
+    if (media && !MODO_TESTE) {
         try {
             mediaObj = new MessageMedia(media.mimetype, media.data, media.filename);
         } catch (err) {
             console.error('Erro ao preparar a imagem:', err);
-            io.emit('progress', { index: 0, total: numbers.length, number: '-', status: 'failed', error: 'Imagem inválida' });
-            return;
+            return res.status(400).json({ error: 'Imagem inválida' });
         }
     }
 
-    console.log(`>> Iniciando campanha para ${numbers.length} número(s).`);
+    // Responde na hora e segue enviando em segundo plano (o progresso vai por socket).
+    res.json({ message: 'Campanha iniciada', total: numbers.length });
+    executarCampanha({
+        numbers,
+        message,
+        mediaObj,
+        minDelay,
+        maxDelay,
+        comImagem: !!media,
+        simulada: MODO_TESTE,
+    });
+});
+
+// ===== Execução da campanha (real ou simulada) =====
+// Envia (ou finge enviar) para cada número, avisa a interface pelo socket a
+// cada passo e, no fim, grava tudo no histórico (modo Registro).
+async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay, comImagem, simulada }) {
+    const registro = {
+        id: Date.now(),
+        iniciadaEm: new Date().toISOString(),
+        finalizadaEm: null,
+        simulada,
+        comImagem,
+        mensagem: (message || '').slice(0, 300), // só uma prévia, não a íntegra
+        total: numbers.length,
+        enviados: 0,
+        falhas: 0,
+        resultados: [],
+    };
+    campanhaAtual = registro;
+
+    // Na simulação, encurta a espera para o teste ser rápido (máx. 800ms).
+    const min = simulada ? Math.min(minDelay, 800) : minDelay;
+    const max = simulada ? Math.min(Math.max(maxDelay, min), 800) : maxDelay;
+
+    console.log(`>> ${simulada ? '[TESTE] Simulando' : 'Iniciando'} campanha para ${numbers.length} número(s).`);
+
     for (let i = 0; i < numbers.length; i++) {
         const numeroBruto = numbers[i];
-        const numeroFormatado = formatarNumero(numeroBruto);
+        let deuCerto = false;
+        let erro = null;
 
-        try {
-            if (mediaObj) {
-                await client.sendMessage(numeroFormatado, mediaObj, { caption: message });
-            } else {
-                await client.sendMessage(numeroFormatado, message);
+        if (simulada) {
+            deuCerto = Math.random() > 0.15; // ~85% de sucesso de mentira
+            if (!deuCerto) erro = 'Falha simulada (modo de teste)';
+        } else {
+            try {
+                const numeroFormatado = formatarNumero(numeroBruto);
+                if (mediaObj) {
+                    await client.sendMessage(numeroFormatado, mediaObj, { caption: message });
+                } else {
+                    await client.sendMessage(numeroFormatado, message);
+                }
+                deuCerto = true;
+                console.log(`   Enviado para ${numeroFormatado} (${i + 1}/${numbers.length})`);
+            } catch (err) {
+                erro = err.toString();
+                console.error(`   Falhou para ${numeroBruto}:`, err.message);
             }
-            console.log(`   Enviado para ${numeroFormatado} (${i + 1}/${numbers.length})`);
-            io.emit('progress', { index: i, total: numbers.length, number: numeroBruto, status: 'sent' });
-        } catch (err) {
-            console.error(`   Falhou para ${numeroFormatado}:`, err.message);
-            io.emit('progress', {
-                index: i,
-                total: numbers.length,
-                number: numeroBruto,
-                status: 'failed',
-                error: err.toString(),
-            });
         }
+
+        if (deuCerto) registro.enviados++;
+        else registro.falhas++;
+        registro.resultados.push({
+            numero: numeroBruto,
+            ok: deuCerto,
+            erro: erro || undefined,
+            horario: new Date().toISOString(),
+        });
+
+        io.emit('progress', {
+            index: i,
+            total: numbers.length,
+            number: numeroBruto,
+            status: deuCerto ? 'sent' : 'failed',
+            error: erro || undefined,
+            enviados: registro.enviados,
+            falhas: registro.falhas,
+        });
 
         // Espera um tempo aleatório entre um envio e outro (reduz risco de bloqueio).
         if (i < numbers.length - 1) {
-            const espera = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay);
+            const espera = Math.floor(Math.random() * (max - min + 1) + min);
             await delay(espera);
         }
     }
 
-    io.emit('campaign_finished');
-    console.log('>> Campanha finalizada.');
-});
+    registro.finalizadaEm = new Date().toISOString();
+    campanhaAtual = null;
+
+    // Grava no histórico (campanha mais recente primeiro).
+    const historico = carregarHistorico();
+    historico.unshift(registro);
+    if (historico.length > LIMITE_HISTORICO) historico.length = LIMITE_HISTORICO;
+    salvarHistorico(historico);
+
+    io.emit('campaign_finished', {
+        enviados: registro.enviados,
+        falhas: registro.falhas,
+        total: registro.total,
+    });
+    console.log(`>> Campanha finalizada: ${registro.enviados} enviados, ${registro.falhas} falhas.`);
+}
 
 // ===== Funções auxiliares =====
 
@@ -284,35 +397,6 @@ function formatarNumero(numero) {
         limpo = `${limpo}@c.us`;
     }
     return limpo;
-}
-
-// Simula uma campanha (modo de teste): finge enviar, sem tocar no WhatsApp.
-// ~85% de sucesso e alguns erros de mentira, com um intervalo curto entre um
-// e outro para o teste ser rápido.
-async function simularCampanha(numbers, minDelay, maxDelay) {
-    console.log(`>> [TESTE] Simulando campanha para ${numbers.length} número(s).`);
-    // No teste, limitamos a espera para no máximo 1 segundo.
-    const min = Math.min(minDelay, 1000);
-    const max = Math.min(Math.max(maxDelay, min), 1000);
-
-    for (let i = 0; i < numbers.length; i++) {
-        const deuCerto = Math.random() > 0.15; // ~85% de sucesso
-        io.emit('progress', {
-            index: i,
-            total: numbers.length,
-            number: numbers[i],
-            status: deuCerto ? 'sent' : 'failed',
-            error: deuCerto ? undefined : 'Falha simulada (modo de teste)',
-        });
-
-        if (i < numbers.length - 1) {
-            const espera = Math.floor(Math.random() * (max - min + 1) + min);
-            await delay(espera);
-        }
-    }
-
-    io.emit('campaign_finished');
-    console.log('>> [TESTE] Campanha simulada finalizada.');
 }
 
 // Abre o navegador padrão na página do sistema (Windows, Mac ou Linux).

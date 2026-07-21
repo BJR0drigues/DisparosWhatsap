@@ -1,6 +1,7 @@
 node_modules
 .wwebjs_auth
 .wwebjs_cache
+historico.json
 dist
 .env
 .DS_Store

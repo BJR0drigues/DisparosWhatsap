@@ -41,14 +41,17 @@ O que acontece depois:
    **escaneie o QR Code** da tela.
 4. Quando aparecer **"Online e Pronto"**, a tela de envio libera.
 
-### Para disparar as mensagens
-1. **Cole os números**, um por linha, no formato `5561999999999`
-   *(código do país + DDD + número)*.
-2. **Escreva a mensagem** (e, se quiser, anexe uma **imagem**).
-3. Ajuste o **intervalo** entre os envios (em segundos).
-4. Clique em **Iniciar Disparos** e acompanhe o resultado na coluna de logs.
+### As três telas
+- **Disparar** — cole os números (um por linha, formato `5561999999999`),
+  escreva a mensagem, anexe uma imagem se quiser, ajuste o intervalo e clique
+  em **Iniciar disparos**.
+- **Acompanhar** — abre sozinha ao iniciar: um medidor mostra a porcentagem
+  concluída, quantos foram **enviados / falharam / restam** e o **tempo restante
+  estimado**, com cada número aparecendo em tempo real.
+- **Registro** — o histórico de todas as campanhas: data, taxa de sucesso e,
+  ao clicar, a lista de cada número (verde = enviado, vermelho = falhou).
 
-> Para **encerrar** o programa, basta fechar a janela preta.
+> Para **encerrar** o programa, feche a janela preta (ou use o `PARAR.bat`).
 
 ---
 
