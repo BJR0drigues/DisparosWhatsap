@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BJ Sender - Disparador de Mensagens</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         :root {
             --bg-primary: #0a0f14;
@@ -1083,8 +1083,9 @@
 
     <script>
         // ===== CONFIG =====
-        const BACKEND_URL = 'http://localhost:3001';
-        const socket = io(BACKEND_URL);
+        // A interface é servida pelo próprio servidor, então usamos a mesma origem.
+        const BACKEND_URL = '';
+        const socket = io();
 
         // ===== STATE =====
         let mediaData = null;
