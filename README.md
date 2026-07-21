@@ -78,6 +78,20 @@ Você é o responsável pelo uso desta ferramenta e pela sua conta.
 
 ---
 
+## 🧪 Modo de teste (sem WhatsApp de verdade)
+
+Quer só **ver a tela funcionando** sem conectar celular nem correr risco de bloqueio?
+Existe um modo que **simula** os envios (mostra progresso e logs de mentira).
+
+- **Linux/Mac:** rode `./teste-linux.sh`
+- **Qualquer sistema:** `node index.js --teste` (ou defina `BJ_TESTE=1`)
+
+Ele sobe a interface, entra direto como "Online e Pronto" (sem QR Code) e, ao
+clicar em **Iniciar Disparos**, finge enviar para os números com ~85% de sucesso.
+Ótimo para demonstrar ou testar mudanças na tela.
+
+---
+
 ## 🧩 Para quem entende de código
 
 - Um único servidor (**Node + Express**) sobe na porta **3001** e já serve a

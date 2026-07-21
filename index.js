@@ -7,7 +7,6 @@ const fs = require('fs');
 const http = require('http');
 const { exec } = require('child_process');
 const { Server } = require('socket.io');
-const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 
 // ===== Configurações principais (mude aqui se precisar) =====
@@ -15,6 +14,10 @@ const PORTA = 3001;
 // Deixe false para NÃO mostrar a janela do navegador interno do WhatsApp.
 // Coloque true só se precisar depurar algum problema de conexão.
 const MOSTRAR_JANELA_INTERNA = false;
+// MODO DE TESTE: não conecta no WhatsApp de verdade, apenas SIMULA os envios.
+// Serve para testar a interface sem celular/conta e sem risco de bloqueio.
+// Ativa com a variável BJ_TESTE=1 ou rodando: node index.js --teste
+const MODO_TESTE = process.env.BJ_TESTE === '1' || process.argv.includes('--teste');
 
 const app = express();
 const servidor = http.createServer(app);
@@ -58,24 +61,6 @@ function acharNavegador() {
     return candidatos.find((caminho) => fs.existsSync(caminho)) || undefined;
 }
 
-// ===== Cliente do WhatsApp =====
-const client = new Client({
-    authStrategy: new LocalAuth(), // salva a sessão (não precisa ler QR toda vez)
-    puppeteer: {
-        headless: !MOSTRAR_JANELA_INTERNA,
-        executablePath: acharNavegador(), // undefined = usa o Chromium interno
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu',
-        ],
-    },
-});
-
 // ===== Estado atual da conexão (o navegador consulta isso em /status) =====
 let isReady = false;
 let isAuthenticated = false;
@@ -83,86 +68,121 @@ let qrCodeUrl = null;
 let loadingPercent = 0;
 let loadingMessage = 'Inicializando...';
 
-client.on('qr', async (qr) => {
-    console.log('>> QR Code recebido. Escaneie na tela do navegador.');
-    isAuthenticated = false;
-    loadingMessage = 'Escaneie o QR Code';
-    loadingPercent = 0;
-    try {
-        qrCodeUrl = await qrcode.toDataURL(qr);
-        io.emit('qr', qrCodeUrl);
-        io.emit('loading_screen', { percent: 0, message: 'Escaneie o QR Code' });
-    } catch (err) {
-        console.error('Erro ao gerar a imagem do QR Code:', err);
-    }
-});
+// Só carregados quando NÃO estamos em modo de teste (require preguiçoso).
+let client = null;
+let MessageMedia = null;
 
-client.on('ready', () => {
-    console.log('>> WhatsApp conectado e pronto para enviar!');
-    isReady = true;
-    isAuthenticated = true;
-    qrCodeUrl = null;
-    io.emit('ready');
-});
+// ===== Liga o WhatsApp de verdade (fora do modo de teste) =====
+function iniciarWhatsApp() {
+    // Carrega a biblioteca pesada só aqui, quando realmente vamos usá-la.
+    const wweb = require('whatsapp-web.js');
+    MessageMedia = wweb.MessageMedia;
 
-client.on('authenticated', () => {
-    console.log('>> Autenticado. Sincronizando conversas...');
-    isAuthenticated = true;
-    qrCodeUrl = null;
-    io.emit('authenticated');
+    client = new wweb.Client({
+        authStrategy: new wweb.LocalAuth(), // salva a sessão (não pede QR toda vez)
+        puppeteer: {
+            headless: !MOSTRAR_JANELA_INTERNA,
+            executablePath: acharNavegador(), // undefined = usa o Chromium interno
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-gpu',
+            ],
+        },
+    });
 
-    loadingMessage = 'Autenticado. Aguardando o WhatsApp carregar...';
-    loadingPercent = 10;
-    io.emit('loading_screen', { percent: loadingPercent, message: loadingMessage });
-
-    // Às vezes o evento "ready" não dispara sozinho; forçamos após 8s.
-    setTimeout(() => {
-        if (!isReady) {
-            console.log('>> Forçando estado "pronto" após autenticação.');
-            isReady = true;
-            qrCodeUrl = null;
-            io.emit('ready');
+    client.on('qr', async (qr) => {
+        console.log('>> QR Code recebido. Escaneie na tela do navegador.');
+        isAuthenticated = false;
+        loadingMessage = 'Escaneie o QR Code';
+        loadingPercent = 0;
+        try {
+            qrCodeUrl = await qrcode.toDataURL(qr);
+            io.emit('qr', qrCodeUrl);
+            io.emit('loading_screen', { percent: 0, message: 'Escaneie o QR Code' });
+        } catch (err) {
+            console.error('Erro ao gerar a imagem do QR Code:', err);
         }
-    }, 8000);
-});
+    });
 
-client.on('loading_screen', (percent, message) => {
-    loadingPercent = percent;
-    loadingMessage = message;
-    io.emit('loading_screen', { percent, message });
-});
+    client.on('ready', () => {
+        console.log('>> WhatsApp conectado e pronto para enviar!');
+        isReady = true;
+        isAuthenticated = true;
+        qrCodeUrl = null;
+        io.emit('ready');
+    });
 
-client.on('change_state', (state) => {
-    loadingMessage = `Estado: ${state}`;
-    io.emit('loading_screen', { percent: loadingPercent, message: loadingMessage });
+    client.on('authenticated', () => {
+        console.log('>> Autenticado. Sincronizando conversas...');
+        isAuthenticated = true;
+        qrCodeUrl = null;
+        io.emit('authenticated');
 
-    if (state === 'CONNECTED') {
-        loadingPercent = 100;
-        loadingMessage = 'Conexão estabelecida! Finalizando...';
-        io.emit('loading_screen', { percent: 100, message: loadingMessage });
+        loadingMessage = 'Autenticado. Aguardando o WhatsApp carregar...';
+        loadingPercent = 10;
+        io.emit('loading_screen', { percent: loadingPercent, message: loadingMessage });
+
+        // Às vezes o evento "ready" não dispara sozinho; forçamos após 8s.
         setTimeout(() => {
             if (!isReady) {
+                console.log('>> Forçando estado "pronto" após autenticação.');
                 isReady = true;
                 qrCodeUrl = null;
                 io.emit('ready');
             }
-        }, 5000);
-    }
-});
+        }, 8000);
+    });
 
-client.on('auth_failure', (msg) => {
-    console.error('>> Falha na autenticação:', msg);
-    io.emit('loading_screen', { percent: 0, message: 'Falha ao autenticar. Recarregue a página.' });
-});
+    client.on('loading_screen', (percent, message) => {
+        loadingPercent = percent;
+        loadingMessage = message;
+        io.emit('loading_screen', { percent, message });
+    });
 
-client.on('disconnected', (reason) => {
-    console.log('>> WhatsApp desconectado:', reason);
-    isReady = false;
-    isAuthenticated = false;
-    loadingPercent = 0;
-    loadingMessage = 'Desconectado';
-    io.emit('disconnected', reason);
-});
+    client.on('change_state', (state) => {
+        loadingMessage = `Estado: ${state}`;
+        io.emit('loading_screen', { percent: loadingPercent, message: loadingMessage });
+
+        if (state === 'CONNECTED') {
+            loadingPercent = 100;
+            loadingMessage = 'Conexão estabelecida! Finalizando...';
+            io.emit('loading_screen', { percent: 100, message: loadingMessage });
+            setTimeout(() => {
+                if (!isReady) {
+                    isReady = true;
+                    qrCodeUrl = null;
+                    io.emit('ready');
+                }
+            }, 5000);
+        }
+    });
+
+    client.on('auth_failure', (msg) => {
+        console.error('>> Falha na autenticação:', msg);
+        io.emit('loading_screen', { percent: 0, message: 'Falha ao autenticar. Recarregue a página.' });
+    });
+
+    client.on('disconnected', (reason) => {
+        console.log('>> WhatsApp desconectado:', reason);
+        isReady = false;
+        isAuthenticated = false;
+        loadingPercent = 0;
+        loadingMessage = 'Desconectado';
+        io.emit('disconnected', reason);
+    });
+
+    console.log('Preparando o WhatsApp... (a primeira vez pode demorar alguns segundos)');
+    client.initialize().catch((err) => {
+        console.error('\n[ERRO] Não foi possível iniciar o navegador do WhatsApp.');
+        console.error('Dica: instale o Google Chrome ou o Microsoft Edge e tente de novo.');
+        console.error('Detalhe técnico:', err.message);
+    });
+}
 
 // ===== Rotas da API =====
 
@@ -173,6 +193,9 @@ app.get('/status', (req, res) => {
 
 // Desconectar a conta do WhatsApp.
 app.post('/logout', async (req, res) => {
+    if (!client) {
+        return res.json({ message: 'Nada para desconectar (modo de teste)' });
+    }
     try {
         await client.logout();
         res.json({ message: 'Sessão encerrada' });
@@ -195,21 +218,27 @@ app.post('/send-bulk', async (req, res) => {
         return res.status(400).json({ error: 'Escreva uma mensagem ou anexe uma imagem' });
     }
 
-    // Monta o objeto de mídia (se houver imagem anexada).
+    // Responde na hora e segue enviando em segundo plano (o progresso vai por socket).
+    res.json({ message: 'Campanha iniciada', total: numbers.length });
+
+    // No modo de teste, apenas simulamos os envios (sem tocar no WhatsApp).
+    if (MODO_TESTE) {
+        return simularCampanha(numbers, minDelay, maxDelay);
+    }
+
+    // ===== Envio real =====
     let mediaObj = null;
     if (media) {
         try {
             mediaObj = new MessageMedia(media.mimetype, media.data, media.filename);
         } catch (err) {
             console.error('Erro ao preparar a imagem:', err);
-            return res.status(400).json({ error: 'Imagem inválida' });
+            io.emit('progress', { index: 0, total: numbers.length, number: '-', status: 'failed', error: 'Imagem inválida' });
+            return;
         }
     }
 
-    // Responde na hora e segue enviando em segundo plano (o progresso vai por socket).
-    res.json({ message: 'Campanha iniciada', total: numbers.length });
     console.log(`>> Iniciando campanha para ${numbers.length} número(s).`);
-
     for (let i = 0; i < numbers.length; i++) {
         const numeroBruto = numbers[i];
         const numeroFormatado = formatarNumero(numeroBruto);
@@ -257,6 +286,35 @@ function formatarNumero(numero) {
     return limpo;
 }
 
+// Simula uma campanha (modo de teste): finge enviar, sem tocar no WhatsApp.
+// ~85% de sucesso e alguns erros de mentira, com um intervalo curto entre um
+// e outro para o teste ser rápido.
+async function simularCampanha(numbers, minDelay, maxDelay) {
+    console.log(`>> [TESTE] Simulando campanha para ${numbers.length} número(s).`);
+    // No teste, limitamos a espera para no máximo 1 segundo.
+    const min = Math.min(minDelay, 1000);
+    const max = Math.min(Math.max(maxDelay, min), 1000);
+
+    for (let i = 0; i < numbers.length; i++) {
+        const deuCerto = Math.random() > 0.15; // ~85% de sucesso
+        io.emit('progress', {
+            index: i,
+            total: numbers.length,
+            number: numbers[i],
+            status: deuCerto ? 'sent' : 'failed',
+            error: deuCerto ? undefined : 'Falha simulada (modo de teste)',
+        });
+
+        if (i < numbers.length - 1) {
+            const espera = Math.floor(Math.random() * (max - min + 1) + min);
+            await delay(espera);
+        }
+    }
+
+    io.emit('campaign_finished');
+    console.log('>> [TESTE] Campanha simulada finalizada.');
+}
+
 // Abre o navegador padrão na página do sistema (Windows, Mac ou Linux).
 function abrirNavegador(url) {
     const comando =
@@ -267,18 +325,21 @@ function abrirNavegador(url) {
 }
 
 // ===== Sobe tudo =====
-console.log('Preparando o WhatsApp... (a primeira vez pode demorar alguns segundos)');
-
-client.initialize().catch((err) => {
-    console.error('\n[ERRO] Não foi possível iniciar o navegador do WhatsApp.');
-    console.error('Dica: instale o Google Chrome (https://google.com/chrome) e tente de novo.');
-    console.error('Detalhe técnico:', err.message);
-});
+if (MODO_TESTE) {
+    // No teste, já entramos "prontos" e avisamos cada navegador que conectar.
+    isReady = true;
+    isAuthenticated = true;
+    loadingMessage = 'Modo de teste';
+    io.on('connection', (socket) => socket.emit('ready'));
+    console.log('>> MODO DE TESTE ativo: os envios serão apenas SIMULADOS.');
+} else {
+    iniciarWhatsApp();
+}
 
 servidor.listen(PORTA, () => {
     const url = `http://localhost:${PORTA}`;
     console.log('\n============================================');
-    console.log('   BJ Sender está no ar!');
+    console.log(`   BJ Sender está no ar!${MODO_TESTE ? '  (MODO DE TESTE)' : ''}`);
     console.log(`   Abra no navegador: ${url}`);
     console.log('   Para encerrar: feche esta janela.');
     console.log('============================================\n');
