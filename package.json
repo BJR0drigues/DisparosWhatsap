@@ -1,13 +1,18 @@
 {
   "name": "bj-sender",
   "version": "2.0.0",
-  "description": "Disparador de mensagens em massa para WhatsApp",
+  "description": "Disparador de mensagens em massa para WhatsApp — criado por Brayan J Rodrigues",
   "main": "index.js",
+  "private": true,
   "scripts": {
     "start": "node index.js"
   },
-  "author": "Brayan J Rodrigues",
-  "license": "ISC",
+  "author": {
+    "name": "Brayan J Rodrigues",
+    "url": "https://github.com/BJR0drigues"
+  },
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/BJR0drigues/DisparosWhatsap",
   "type": "commonjs",
   "dependencies": {
     "cors": "^2.8.6",

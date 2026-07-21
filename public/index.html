@@ -1,10 +1,18 @@
 <!DOCTYPE html>
+<!--
+  BJ Sender — Disparador de Mensagens para WhatsApp
+  Criado e de autoria exclusiva de Brayan J Rodrigues (GitHub: BJR0drigues).
+  © 2026 Brayan J Rodrigues. Todos os direitos reservados. Ver arquivo LICENSE.
+-->
 <html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BJ Sender — Disparador de Mensagens</title>
+    <meta name="author" content="Brayan J Rodrigues">
+    <meta name="copyright" content="© 2026 Brayan J Rodrigues — Todos os direitos reservados">
+    <meta name="description" content="BJ Sender — Disparador de mensagens para WhatsApp. Autoria de Brayan J Rodrigues.">
+    <title>BJ Sender — por Brayan J Rodrigues</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -113,8 +121,9 @@
         .conn-l { line-height: 1.2; }
         .conn-k { font-size: .64rem; text-transform: uppercase; letter-spacing: .14em; color: var(--ink-3); font-weight: 600; }
         .conn-v { font-size: .86rem; font-weight: 600; color: var(--ink); margin-top: 2px; }
-        .by { text-align: center; margin-top: 12px; font-size: .68rem; color: var(--ink-3); }
-        .by b { color: var(--ink-2); font-weight: 600; }
+        .by { text-align: center; margin-top: 13px; font-size: .82rem; color: var(--ink-2); line-height: 1.5; }
+        .by b { color: var(--green); font-weight: 700; }
+        .by small { display: block; font-size: .66rem; color: var(--ink-3); margin-top: 2px; }
 
         /* ============ MAIN ============ */
         .main { flex: 1; margin-left: 264px; min-height: 100vh; display: flex; flex-direction: column; }
@@ -334,6 +343,11 @@
         }
         .burger { display: none; place-items: center; width: 42px; height: 42px; border-radius: 11px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
         .burger svg { width: 20px; height: 20px; }
+
+        .foot { margin-top: auto; padding: 16px 34px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: .76rem; display: flex; align-items: center; justify-content: center; text-align: center; gap: 12px; flex-wrap: wrap; }
+        .foot b { color: var(--ink-2); font-weight: 600; }
+        .foot a { color: var(--green); text-decoration: none; }
+        @media (max-width: 720px) { .foot { padding: 16px 18px; } }
     </style>
 </head>
 
@@ -379,7 +393,7 @@
                         <div class="conn-v" id="connText">Conectando…</div>
                     </div>
                 </div>
-                <div class="by">por <b>Brayan J Rodrigues</b></div>
+                <div class="by">Criado por <b>Brayan J Rodrigues</b><small>© 2026 · Todos os direitos reservados</small></div>
             </div>
         </aside>
 
@@ -552,6 +566,10 @@
                     </div>
                 </div>
             </section>
+
+            <footer class="foot">
+                <span>© 2026 <b>Brayan J Rodrigues</b> · Todos os direitos reservados · <a href="https://github.com/BJR0drigues" target="_blank" rel="noopener">github.com/BJR0drigues</a></span>
+            </footer>
         </main>
     </div>
 

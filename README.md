@@ -1,5 +1,8 @@
 # 📲 BJ Sender — Disparador de Mensagens para WhatsApp
 
+**Criado por Brayan J Rodrigues** · © 2026 · Todos os direitos reservados
+· [github.com/BJR0drigues](https://github.com/BJR0drigues)
+
 Envie mensagens (com texto e imagem) para vários números de WhatsApp de uma vez,
 por uma tela simples no navegador. Feito para ser usado **sem saber programar**.
 
@@ -108,4 +111,15 @@ clicar em **Iniciar Disparos**, finge enviar para os números com ~85% de sucess
 - Arquivos: `iniciar-oculto.vbs` (Windows sem janela), `INICIAR.bat` (Windows
   com janela / auto-instala Node), `PARAR.bat` (encerra), `iniciar.sh` (Linux/Mac).
 
-Desenvolvido por **Brayan J Rodrigues**.
+---
+
+## 📄 Autoria e Licença
+
+Este software foi **criado e é de autoria exclusiva de Brayan J Rodrigues**
+(GitHub: [BJR0drigues](https://github.com/BJR0drigues)).
+
+**© 2026 Brayan J Rodrigues — Todos os direitos reservados.**
+
+É proibido copiar, modificar, redistribuir ou apresentar-se como autor deste
+software, no todo ou em parte, sem autorização prévia e por escrito do autor.
+Os termos completos estão no arquivo [`LICENSE`](LICENSE).

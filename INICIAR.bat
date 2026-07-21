@@ -1,6 +1,11 @@
 @echo off
+REM ============================================================
+REM  BJ Sender - Disparador de WhatsApp
+REM  Criado por Brayan J Rodrigues (github.com/BJR0drigues)
+REM  (c) 2026 Brayan J Rodrigues. Todos os direitos reservados.
+REM ============================================================
 chcp 65001 >nul
-title BJ Sender - Disparador de WhatsApp
+title BJ Sender - por Brayan J Rodrigues
 cd /d "%~dp0"
 
 REM Se receber o parametro "oculto", nao para para o usuario apertar tecla
@@ -9,6 +14,7 @@ set "MODO=%~1"
 
 echo ============================================
 echo    BJ Sender - Disparador de WhatsApp
+echo    Criado por Brayan J Rodrigues
 echo ============================================
 echo.
 

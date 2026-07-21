@@ -10,6 +10,7 @@ cd "$(dirname "$0")" || exit 1
 
 echo "============================================"
 echo "   BJ Sender - MODO DE TESTE"
+echo "   Criado por Brayan J Rodrigues"
 echo "   (nada e enviado de verdade)"
 echo "============================================"
 echo

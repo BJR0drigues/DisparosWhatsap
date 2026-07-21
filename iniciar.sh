@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# Lançador do BJ Sender para Linux e Mac.
+# ============================================================
+#  BJ Sender - Disparador de WhatsApp (Linux/Mac)
+#  Criado por Brayan J Rodrigues (github.com/BJR0drigues)
+#  (c) 2026 Brayan J Rodrigues. Todos os direitos reservados.
+# ============================================================
 # Uso: dê dois cliques (ou rode ./iniciar.sh no terminal).
 
 cd "$(dirname "$0")" || exit 1
 
 echo "============================================"
 echo "   BJ Sender - Disparador de WhatsApp"
+echo "   Criado por Brayan J Rodrigues"
 echo "============================================"
 echo
 

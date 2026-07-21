@@ -1,4 +1,11 @@
-// BJ Sender - Disparador de mensagens em massa para WhatsApp
+// ============================================================================
+//  BJ Sender - Disparador de mensagens em massa para WhatsApp
+//
+//  Criado e de autoria EXCLUSIVA de Brayan J Rodrigues (GitHub: BJR0drigues).
+//  Copyright © 2026 Brayan J Rodrigues. Todos os direitos reservados.
+//  Uso, cópia, modificação ou redistribuição somente com autorização por
+//  escrito do autor. Ver arquivo LICENSE.
+// ============================================================================
 // Um único programa: sobe o servidor E serve a interface no navegador.
 
 const express = require('express');
@@ -426,6 +433,9 @@ servidor.listen(PORTA, () => {
     console.log(`   BJ Sender está no ar!${MODO_TESTE ? '  (MODO DE TESTE)' : ''}`);
     console.log(`   Abra no navegador: ${url}`);
     console.log('   Para encerrar: feche esta janela.');
+    console.log('   --------------------------------------');
+    console.log('   Criado por Brayan J Rodrigues');
+    console.log('   © 2026 · Todos os direitos reservados');
     console.log('============================================\n');
     abrirNavegador(url);
 });
