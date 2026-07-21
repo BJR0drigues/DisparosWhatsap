@@ -46,13 +46,26 @@ O que acontece depois:
 
 ### As três telas
 - **Disparar** — cole os números (um por linha, formato `5561999999999`),
-  escreva a mensagem, anexe uma imagem se quiser, ajuste o intervalo e clique
-  em **Iniciar disparos**.
+  escreva a mensagem, anexe uma imagem se quiser, escolha o **ritmo** e clique
+  em **Iniciar disparos**. A lista de números fica **salva automaticamente**,
+  então não precisa colar tudo de novo na próxima vez.
 - **Acompanhar** — abre sozinha ao iniciar: um medidor mostra a porcentagem
   concluída, quantos foram **enviados / falharam / restam** e o **tempo restante
   estimado**, com cada número aparecendo em tempo real.
 - **Registro** — o histórico de todas as campanhas: data, taxa de sucesso e,
   ao clicar, a lista de cada número (verde = enviado, vermelho = falhou).
+
+### Ritmo de envio
+Você escolhe **como** os envios são espalhados no tempo:
+- **Janela de tempo** *(recomendado)* — você diz *"todos recebem em até 13 horas"*
+  e o sistema calcula sozinho o intervalo para distribuir os envios ao longo
+  desse período. Ele mostra o ritmo previsto (ex.: *"≈ 1 envio a cada 2min 30s ·
+  último por volta das 21h45"*). Enviar pingado assim reduz o risco de bloqueio.
+- **Intervalo fixo** — o modo clássico: você define os segundos de espera entre
+  um envio e outro.
+
+> **Importante:** o computador precisa ficar **ligado e com o programa aberto**
+> durante toda a janela (numa janela de 13h, o PC não pode desligar/dormir).
 
 > Para **encerrar** o programa, feche a janela preta (ou use o `PARAR.bat`).
 

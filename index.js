@@ -29,6 +29,10 @@ const MODO_TESTE = process.env.BJ_TESTE === '1' || process.argv.includes('--test
 const ARQ_HISTORICO = path.join(__dirname, 'historico.json');
 // Quantas campanhas guardar no histórico (as mais antigas são descartadas).
 const LIMITE_HISTORICO = 100;
+// Onde fica a lista de números salvos (fica guardada entre usos).
+const ARQ_NUMEROS = path.join(__dirname, 'numeros.json');
+// Menor intervalo seguro entre um envio e outro (ms), mesmo no modo janela.
+const GAP_MINIMO = 3000;
 
 const app = express();
 const servidor = http.createServer(app);
@@ -100,6 +104,25 @@ function salvarHistorico(historico) {
         fs.writeFileSync(ARQ_HISTORICO, JSON.stringify(historico, null, 2));
     } catch (err) {
         console.error('Não foi possível salvar o histórico:', err.message);
+    }
+}
+
+// ===== Números salvos (ficam guardados entre usos) =====
+
+function carregarNumeros() {
+    try {
+        const lista = JSON.parse(fs.readFileSync(ARQ_NUMEROS, 'utf8'));
+        return Array.isArray(lista) ? lista : [];
+    } catch {
+        return [];
+    }
+}
+
+function salvarNumeros(lista) {
+    try {
+        fs.writeFileSync(ARQ_NUMEROS, JSON.stringify(lista, null, 2));
+    } catch (err) {
+        console.error('Não foi possível salvar os números:', err.message);
     }
 }
 
@@ -248,6 +271,24 @@ app.delete('/historico', (req, res) => {
     res.json({ message: 'Histórico apagado' });
 });
 
+// Lista de números salvos.
+app.get('/numeros', (req, res) => {
+    res.json(carregarNumeros());
+});
+
+// Salvar (substituir) a lista de números.
+app.put('/numeros', (req, res) => {
+    const lista = Array.isArray(req.body.numeros) ? req.body.numeros : [];
+    salvarNumeros(lista);
+    res.json({ total: lista.length });
+});
+
+// Apagar a lista de números salvos.
+app.delete('/numeros', (req, res) => {
+    salvarNumeros([]);
+    res.json({ message: 'Lista apagada' });
+});
+
 // Desconectar a conta do WhatsApp.
 app.post('/logout', async (req, res) => {
     if (!client) {
@@ -263,7 +304,7 @@ app.post('/logout', async (req, res) => {
 
 // Disparo em massa.
 app.post('/send-bulk', async (req, res) => {
-    const { numbers, message, media, minDelay = 5000, maxDelay = 15000 } = req.body;
+    const { numbers, message, media, minDelay = 5000, maxDelay = 15000, spreadMs = 0 } = req.body;
 
     if (!isReady) {
         return res.status(400).json({ error: 'O WhatsApp ainda não está conectado' });
@@ -297,6 +338,7 @@ app.post('/send-bulk', async (req, res) => {
         mediaObj,
         minDelay,
         maxDelay,
+        spreadMs,
         comImagem: !!media,
         simulada: MODO_TESTE,
     });
@@ -305,7 +347,7 @@ app.post('/send-bulk', async (req, res) => {
 // ===== Execução da campanha (real ou simulada) =====
 // Envia (ou finge enviar) para cada número, avisa a interface pelo socket a
 // cada passo e, no fim, grava tudo no histórico (modo Registro).
-async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay, comImagem, simulada }) {
+async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay, spreadMs, comImagem, simulada }) {
     const registro = {
         id: Date.now(),
         iniciadaEm: new Date().toISOString(),
@@ -320,11 +362,13 @@ async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay
     };
     campanhaAtual = registro;
 
-    // Na simulação, encurta a espera para o teste ser rápido (máx. 800ms).
-    const min = simulada ? Math.min(minDelay, 800) : minDelay;
-    const max = simulada ? Math.min(Math.max(maxDelay, min), 800) : maxDelay;
+    // Modo janela: espalha os envios para que todos recebam dentro de "spreadMs".
+    // Calcula o intervalo-base dividindo a janela pela quantidade de números.
+    const usarJanela = spreadMs > 0 && numbers.length > 1;
+    const baseJanela = usarJanela ? Math.max(GAP_MINIMO, spreadMs / numbers.length) : 0;
 
-    console.log(`>> ${simulada ? '[TESTE] Simulando' : 'Iniciando'} campanha para ${numbers.length} número(s).`);
+    console.log(`>> ${simulada ? '[TESTE] Simulando' : 'Iniciando'} campanha para ${numbers.length} número(s)` +
+        (usarJanela ? ` (janela de ${(spreadMs / 3600000).toFixed(1)}h).` : '.'));
 
     for (let i = 0; i < numbers.length; i++) {
         const numeroBruto = numbers[i];
@@ -369,9 +413,18 @@ async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay
             falhas: registro.falhas,
         });
 
-        // Espera um tempo aleatório entre um envio e outro (reduz risco de bloqueio).
+        // Espera antes do próximo envio (reduz risco de bloqueio).
         if (i < numbers.length - 1) {
-            const espera = Math.floor(Math.random() * (max - min + 1) + min);
+            let espera;
+            if (usarJanela) {
+                // Intervalo-base com ruído de ±30% (mais natural, ainda dentro da janela).
+                espera = Math.floor(baseJanela * (0.7 + Math.random() * 0.6));
+            } else {
+                // Modo intervalo fixo: sorteia entre o mínimo e o máximo.
+                espera = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay);
+            }
+            // Na simulação, encurta tudo para o teste ser rápido.
+            if (simulada) espera = Math.min(espera, 800);
             await delay(espera);
         }
     }
