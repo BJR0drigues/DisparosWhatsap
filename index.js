@@ -25,17 +25,33 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// ===== Descobre o Chrome instalado =====
-// Procura o Chrome nos lugares mais comuns (Windows, Mac e Linux).
-// Se não achar em nenhum, retorna undefined e o whatsapp-web.js usa
-// o navegador interno que ele mesmo baixa na instalação.
-function acharChrome() {
+// ===== Descobre um navegador já instalado no computador =====
+// Prioridade: o caminho que o lançador (INICIAR.bat) já encontrou e passou
+// pela variável BJ_BROWSER_PATH; senão, procura Chrome, Edge (vem em todo
+// Windows) ou Brave nos lugares mais comuns. Se não achar nenhum, retorna
+// undefined e o whatsapp-web.js usa o Chromium interno que ele baixa.
+// Assim usamos o navegador do próprio usuário em vez de baixar o Chromium.
+function acharNavegador() {
+    if (process.env.BJ_BROWSER_PATH && fs.existsSync(process.env.BJ_BROWSER_PATH)) {
+        return process.env.BJ_BROWSER_PATH;
+    }
     const candidatos = [
+        // Google Chrome
         'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
         'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        // Microsoft Edge (presente em todo Windows 10/11)
+        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+        // Brave
+        'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+        // Mac
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+        // Linux
         '/usr/bin/google-chrome',
         '/usr/bin/google-chrome-stable',
+        '/usr/bin/microsoft-edge',
+        '/usr/bin/brave-browser',
         '/usr/bin/chromium-browser',
         '/usr/bin/chromium',
     ];
@@ -47,7 +63,7 @@ const client = new Client({
     authStrategy: new LocalAuth(), // salva a sessão (não precisa ler QR toda vez)
     puppeteer: {
         headless: !MOSTRAR_JANELA_INTERNA,
-        executablePath: acharChrome(), // undefined = usa o navegador interno
+        executablePath: acharNavegador(), // undefined = usa o Chromium interno
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',

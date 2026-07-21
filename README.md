@@ -7,26 +7,35 @@ por uma tela simples no navegador. Feito para ser usado **sem saber programar**.
 
 ## ✅ Antes de começar (só uma vez)
 
-1. **Instale o Node.js.** Entre em **https://nodejs.org**, baixe a versão **LTS**
-   e instale clicando em *Avançar / Next* até o fim.
-   *(É o único programa que você precisa instalar.)*
-2. **Baixe este projeto.** No GitHub, clique no botão verde **`Code`** →
+1. **Baixe este projeto.** No GitHub, clique no botão verde **`Code`** →
    **`Download ZIP`**. Depois **extraia** o arquivo ZIP para uma pasta
    (ex.: a Área de Trabalho).
+2. Pronto. **Você não precisa instalar mais nada.** Na primeira execução o
+   programa tenta baixar sozinho o que faltar (o Node.js) e usa um navegador
+   que você já tem (Edge, Chrome ou Brave) — sem baixar o Chromium.
+
+> Se o computador for muito travado e a instalação automática do Node.js não
+> funcionar, instale-o manualmente pela versão **LTS** em **https://nodejs.org**
+> e rode de novo.
 
 ---
 
 ## ▶️ Como usar (todo dia)
 
-### No Windows
-- Abra a pasta do projeto e dê **dois cliques em `INICIAR.bat`**.
+### No Windows — escolha um jeito
+- **Sem janela preta (recomendado):** dê **dois cliques em `iniciar-oculto.vbs`**.
+  Aparece só um aviso rápido e depois o navegador abre sozinho.
+- **Vendo o que acontece:** dê **dois cliques em `INICIAR.bat`** (mostra o
+  progresso numa janela preta — bom na primeira vez ou pra resolver problemas).
+
+Para **encerrar** depois, dê dois cliques em **`PARAR.bat`**.
 
 ### No Linux ou Mac
-- Abra a pasta no terminal e rode: `./iniciar.sh`
+- Abra a pasta no terminal e rode: `./iniciar.sh` *(encerra com `Ctrl+C`)*.
 
-O que acontece depois (igual nos dois):
-1. Uma **janela preta** abre e prepara tudo. *(Na primeiríssima vez ela instala
-   os componentes e demora alguns minutos — é normal.)*
+O que acontece depois:
+1. Na **primeiríssima vez**, o programa instala o que precisa (pode demorar
+   alguns minutos — é normal).
 2. O **navegador abre sozinho** mostrando um **QR Code**.
 3. No celular: **WhatsApp → Aparelhos Conectados → Conectar um aparelho** e
    **escaneie o QR Code** da tela.
@@ -60,11 +69,12 @@ Você é o responsável pelo uso desta ferramenta e pela sua conta.
 
 | Problema | O que fazer |
 |---|---|
-| A janela preta diz que **falta o Node.js** | Instale pelo https://nodejs.org e abra de novo. |
+| Rodei o `.vbs` e **nada apareceu** | Rode o **`INICIAR.bat`** (janela preta) pra ver a mensagem de erro. |
+| Diz que **falta o Node.js** e não instalou sozinho | Instale a versão LTS em https://nodejs.org e abra de novo. |
 | O **QR Code não aparece** | Espere alguns segundos e atualize a página do navegador. |
-| **Erro ao abrir o navegador do WhatsApp** | Instale o **Google Chrome** (https://google.com/chrome) e tente de novo. |
+| **Erro ao abrir o navegador do WhatsApp** | Instale o **Microsoft Edge** ou o **Google Chrome** e tente de novo. |
 | As **mensagens não chegam** | Confira se o número está completo e se o celular conectado está com internet. |
-| Quero **trocar de conta** | Apague a pasta `.wwebjs_auth` que fica junto do projeto e inicie de novo. |
+| Quero **trocar de conta** | Encerre com o `PARAR.bat`, apague a pasta `.wwebjs_auth` e inicie de novo. |
 
 ---
 
@@ -73,7 +83,12 @@ Você é o responsável pelo uso desta ferramenta e pela sua conta.
 - Um único servidor (**Node + Express**) sobe na porta **3001** e já serve a
   interface (`public/index.html`) — não existe mais front-end separado.
 - Comunicação em tempo real via **Socket.IO**; envios pelo **whatsapp-web.js**.
+- O `puppeteer` é apontado para um navegador do sistema (Chrome/Edge/Brave);
+  o lançador exporta `BJ_BROWSER_PATH` e liga `PUPPETEER_SKIP_DOWNLOAD` para
+  **não baixar o Chromium**. Sem navegador detectado, cai no Chromium interno.
 - Rodar manualmente: `npm install` e depois `npm start`.
 - Configurações rápidas no topo do `index.js` (`PORTA` e `MOSTRAR_JANELA_INTERNA`).
+- Arquivos: `iniciar-oculto.vbs` (Windows sem janela), `INICIAR.bat` (Windows
+  com janela / auto-instala Node), `PARAR.bat` (encerra), `iniciar.sh` (Linux/Mac).
 
 Desenvolvido por **Brayan J Rodrigues**.
