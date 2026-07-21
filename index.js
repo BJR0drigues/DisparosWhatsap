@@ -84,6 +84,8 @@ let loadingMessage = 'Inicializando...';
 // Campanha em andamento (null quando não há nenhuma). Vai no /status para a
 // interface conseguir retomar o acompanhamento se a página for recarregada.
 let campanhaAtual = null;
+// Vira true quando o usuário pede para parar a campanha em andamento.
+let cancelarCampanha = false;
 
 // Só carregados quando NÃO estamos em modo de teste (require preguiçoso).
 let client = null;
@@ -289,6 +291,16 @@ app.delete('/numeros', (req, res) => {
     res.json({ message: 'Lista apagada' });
 });
 
+// Parar/cancelar a campanha em andamento.
+app.post('/cancel', (req, res) => {
+    if (!campanhaAtual) {
+        return res.status(400).json({ error: 'Nenhuma campanha em andamento' });
+    }
+    cancelarCampanha = true;
+    console.log('>> Parada solicitada pelo usuário.');
+    res.json({ message: 'Parando a campanha...' });
+});
+
 // Desconectar a conta do WhatsApp.
 app.post('/logout', async (req, res) => {
     if (!client) {
@@ -361,6 +373,7 @@ async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay
         resultados: [],
     };
     campanhaAtual = registro;
+    cancelarCampanha = false; // zera qualquer pedido de parada anterior
 
     // Modo janela: espalha os envios para que todos recebam dentro de "spreadMs".
     // Calcula o intervalo-base dividindo a janela pela quantidade de números.
@@ -371,6 +384,12 @@ async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay
         (usarJanela ? ` (janela de ${(spreadMs / 3600000).toFixed(1)}h).` : '.'));
 
     for (let i = 0; i < numbers.length; i++) {
+        // Se o usuário pediu para parar, interrompe antes de enviar o próximo.
+        if (cancelarCampanha) {
+            console.log(`>> Campanha interrompida em ${i}/${numbers.length}.`);
+            break;
+        }
+
         const numeroBruto = numbers[i];
         let deuCerto = false;
         let erro = null;
@@ -425,12 +444,14 @@ async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay
             }
             // Na simulação, encurta tudo para o teste ser rápido.
             if (simulada) espera = Math.min(espera, 800);
-            await delay(espera);
+            await delayCancelavel(espera); // espera que pode ser cortada pela parada
         }
     }
 
+    registro.cancelada = cancelarCampanha;
     registro.finalizadaEm = new Date().toISOString();
     campanhaAtual = null;
+    cancelarCampanha = false;
 
     // Grava no histórico (campanha mais recente primeiro).
     const historico = carregarHistorico();
@@ -442,8 +463,23 @@ async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay
         enviados: registro.enviados,
         falhas: registro.falhas,
         total: registro.total,
+        cancelada: registro.cancelada,
     });
-    console.log(`>> Campanha finalizada: ${registro.enviados} enviados, ${registro.falhas} falhas.`);
+    console.log(`>> Campanha ${registro.cancelada ? 'INTERROMPIDA' : 'finalizada'}: ` +
+        `${registro.enviados} enviados, ${registro.falhas} falhas.`);
+}
+
+// Espera "ms" milissegundos, mas em pedaços pequenos, para poder ser
+// interrompida na hora quando o usuário aperta Parar (importante no modo
+// janela, onde a espera entre envios pode ser de vários minutos).
+async function delayCancelavel(ms) {
+    const passo = 300;
+    let restante = ms;
+    while (restante > 0) {
+        if (cancelarCampanha) return;
+        await delay(Math.min(passo, restante));
+        restante -= passo;
+    }
 }
 
 // ===== Funções auxiliares =====

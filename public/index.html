@@ -264,6 +264,12 @@
         .eta-row .k { font-size: .78rem; color: var(--ink-3); }
         .eta-row .v { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1rem; color: var(--ink); }
 
+        .stop-btn { width: 100%; margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; border-radius: var(--r); border: 1px solid rgba(240, 85, 91, .45); background: rgba(240, 85, 91, .10); color: var(--red); font-family: 'Sora', sans-serif; font-size: .95rem; font-weight: 700; cursor: pointer; transition: background .18s, border-color .18s; }
+        .stop-btn svg { width: 20px; height: 20px; }
+        .stop-btn:hover:not(:disabled) { background: rgba(240, 85, 91, .18); border-color: var(--red); }
+        .stop-btn:disabled { opacity: .55; cursor: not-allowed; }
+        .stop-btn[hidden] { display: none; }
+
         /* ============ ACTIVITY LOG ============ */
         .feed { max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
         .empty { display: grid; place-items: center; text-align: center; padding: 46px 20px; color: var(--ink-3); gap: 12px; }
@@ -308,6 +314,7 @@
         .run-nums .ok { color: var(--green); }
         .run-nums .fl { color: var(--red); }
         .run-tag { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: 3px 9px; border-radius: 8px; background: rgba(245, 165, 36, .14); color: var(--amber); flex-shrink: 0; }
+        .run-tag.stop { background: rgba(240, 85, 91, .14); color: var(--red); }
         .run-caret { color: var(--ink-3); transition: transform .2s; flex-shrink: 0; }
         .run.open .run-caret { transform: rotate(90deg); }
         .run-body { display: none; padding: 0 20px 18px; }
@@ -567,6 +574,11 @@
                             <span class="k">Tempo restante estimado</span>
                             <span class="v mono" id="eta">—</span>
                         </div>
+
+                        <button class="stop-btn" id="stopBtn" onclick="stopCampaign()" hidden>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" stroke="none" /></svg>
+                            <span id="stopLabel">Parar campanha</span>
+                        </button>
                     </div>
 
                     <div class="card side-sticky">
@@ -694,15 +706,21 @@
         });
 
         socket.on('campaign_finished', (sum) => {
-            if (sum) { run && (run.ok = sum.enviados, run.fail = sum.falhas); }
-            $('trackState').textContent = 'Concluída';
+            if (sum && run) { run.ok = sum.enviados; run.fail = sum.falhas; }
+            const cancelada = sum && sum.cancelada;
+            const enviados = sum ? sum.enviados : (run ? run.ok : 0);
+            $('trackState').textContent = cancelada ? 'Interrompida' : 'Concluída';
             $('nowNum').textContent = '';
-            $('eta').textContent = 'Concluído';
-            addLine('sys', 'Campanha finalizada', '✓', '', run ? `${run.ok} enviados · ${run.fail} falhas` : '');
+            $('eta').textContent = cancelada ? 'Interrompida' : 'Concluído';
+            addLine(cancelada ? 'err' : 'sys',
+                cancelada ? 'Campanha interrompida' : 'Campanha finalizada',
+                cancelada ? '■' : '✓', '',
+                `${enviados} enviados${sum ? ` · ${sum.falhas} falhas` : ''}`);
             resetSendBtn();
             $('trackCount').style.display = 'none';
+            $('stopBtn').hidden = true;
             run = null;
-            toast(`Campanha concluída — ${sum ? sum.enviados : ''} enviados`);
+            toast(cancelada ? `Campanha parada — ${enviados} já haviam recebido` : `Campanha concluída — ${enviados} enviados`);
         });
 
         function startLocalRun(total) {
@@ -710,7 +728,25 @@
             feed.innerHTML = ''; feed.appendChild(feedEmpty); feedEmpty.style.display = 'none';
             $('trackState').textContent = 'Enviando';
             $('trackCount').style.display = ''; $('trackCount').textContent = '0';
+            const sb = $('stopBtn');
+            sb.hidden = false; sb.disabled = false;
+            $('stopLabel').textContent = 'Parar campanha';
             updateMeter(0);
+        }
+
+        // Pede ao servidor para parar a campanha em andamento.
+        async function stopCampaign() {
+            if (!confirm('Parar a campanha? Os números que ainda não receberam serão deixados de fora.')) return;
+            $('stopBtn').disabled = true;
+            $('stopLabel').textContent = 'Parando…';
+            try {
+                const r = await fetch('/cancel', { method: 'POST' });
+                if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Erro'); }
+            } catch (e) {
+                toast(e.message, true);
+                $('stopBtn').disabled = false;
+                $('stopLabel').textContent = 'Parar campanha';
+            }
         }
 
         function updateMeter(done) {
@@ -901,6 +937,7 @@
                     <div class="run-date"><div class="d">${data}, ${hora}</div><div class="t">${r.total} destinatário(s) · ${taxa}% de sucesso</div></div>
                     <div class="run-bar"><i style="width:${taxa}%"></i></div>
                     <div class="run-nums"><span class="ok">✓ ${r.enviados}</span><span class="fl">✕ ${r.falhas}</span></div>
+                    ${r.cancelada ? '<span class="run-tag stop">Parada</span>' : ''}
                     ${r.simulada ? '<span class="run-tag">Teste</span>' : ''}
                     <svg class="run-caret" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </div>
