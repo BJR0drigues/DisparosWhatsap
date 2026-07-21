@@ -49,6 +49,8 @@ O que acontece depois:
   escreva a mensagem, anexe uma imagem se quiser, escolha o **ritmo** e clique
   em **Iniciar disparos**. A lista de números fica **salva automaticamente**,
   então não precisa colar tudo de novo na próxima vez.
+  O sistema também **acerta sozinho o 9º dígito** (o "9 a mais" dos celulares)
+  e **pula os números que não têm WhatsApp**, marcando-os no acompanhamento.
 - **Acompanhar** — abre sozinha ao iniciar: um medidor mostra a porcentagem
   concluída, quantos foram **enviados / falharam / restam** e o **tempo restante
   estimado**, com cada número aparecendo em tempo real.
@@ -92,6 +94,7 @@ Você é o responsável pelo uso desta ferramenta e pela sua conta.
 | Diz que **falta o Node.js** e não instalou sozinho | Instale a versão LTS em https://nodejs.org e abra de novo. |
 | O **QR Code não aparece** | Espere alguns segundos e atualize a página do navegador. |
 | **Erro ao abrir o navegador do WhatsApp** | Instale o **Microsoft Edge** ou o **Google Chrome** e tente de novo. |
+| Aparece **"Número não tem WhatsApp"** | Aquele número não tem conta no WhatsApp (ou está digitado errado). O sistema já pula e segue com os demais. |
 | As **mensagens não chegam** | Confira se o número está completo e se o celular conectado está com internet. |
 | Quero **trocar de conta** | Encerre com o `PARAR.bat`, apague a pasta `.wwebjs_auth` e inicie de novo. |
 

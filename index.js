@@ -396,17 +396,32 @@ async function executarCampanha({ numbers, message, mediaObj, minDelay, maxDelay
 
         if (simulada) {
             deuCerto = Math.random() > 0.15; // ~85% de sucesso de mentira
-            if (!deuCerto) erro = 'Falha simulada (modo de teste)';
+            // Simula os dois tipos de falha para dar pra ver na tela como ficam.
+            if (!deuCerto) {
+                erro = Math.random() > 0.5
+                    ? 'Número não tem WhatsApp (simulado)'
+                    : 'Falha simulada (modo de teste)';
+            }
         } else {
             try {
-                const numeroFormatado = formatarNumero(numeroBruto);
-                if (mediaObj) {
-                    await client.sendMessage(numeroFormatado, mediaObj, { caption: message });
+                const limpo = String(numeroBruto).replace(/\D/g, '');
+                // Pergunta ao WhatsApp o ID REAL da conta. Isso resolve o 9º
+                // dígito (retorna a versão com ou sem o 9, conforme a conta) e
+                // retorna null quando o número não tem WhatsApp.
+                const contato = await client.getNumberId(limpo);
+                if (!contato) {
+                    erro = 'Número não tem WhatsApp';
+                    console.log(`   Sem WhatsApp, ignorado: ${numeroBruto} (${i + 1}/${numbers.length})`);
                 } else {
-                    await client.sendMessage(numeroFormatado, message);
+                    const destino = contato._serialized;
+                    if (mediaObj) {
+                        await client.sendMessage(destino, mediaObj, { caption: message });
+                    } else {
+                        await client.sendMessage(destino, message);
+                    }
+                    deuCerto = true;
+                    console.log(`   Enviado para ${destino} (${i + 1}/${numbers.length})`);
                 }
-                deuCerto = true;
-                console.log(`   Enviado para ${numeroFormatado} (${i + 1}/${numbers.length})`);
             } catch (err) {
                 erro = err.toString();
                 console.error(`   Falhou para ${numeroBruto}:`, err.message);
@@ -485,15 +500,6 @@ async function delayCancelavel(ms) {
 // ===== Funções auxiliares =====
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Limpa o número (tira espaços, traços e parênteses) e adiciona o sufixo do WhatsApp.
-function formatarNumero(numero) {
-    let limpo = String(numero).replace(/\D/g, '');
-    if (!limpo.endsWith('@c.us')) {
-        limpo = `${limpo}@c.us`;
-    }
-    return limpo;
-}
 
 // Abre o navegador padrão na página do sistema (Windows, Mac ou Linux).
 function abrirNavegador(url) {
